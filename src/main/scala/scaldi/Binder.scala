@@ -58,7 +58,7 @@ trait WordBinder {
     *   bind [Database] when (inDevMode or inTestMode) to new InMemoryDatabase
     * }}}
     * @param condition condition on which the binding will be chosen
-    * @param fn ???
+    * @param fn block of code containing bindings that will bind when condition is true
     */
   def when(condition: => Condition)(fn: => Unit) = {
     contextCondition = contextCondition map (c => () => condition and c()) orElse Some(() => condition)
@@ -109,7 +109,7 @@ trait WordBinder {
 
 /**
   * Provides DSL to make binding identifiable
-  * @tparam R ???
+  * @tparam R `BindHelper` or `BoundHelper`
   */
 trait CanBeIdentified[R] { this: R =>
   /**
@@ -120,7 +120,6 @@ trait CanBeIdentified[R] { this: R =>
   /**
     * Appends an `Identifier` to a list of binding's identifiers
     * @param ids vargs of identifiers
-    * @return ???
     */
   def identifiedBy(ids: Identifier*): R = {
     identifiers = identifiers ++ ids
@@ -130,7 +129,6 @@ trait CanBeIdentified[R] { this: R =>
   /**
     * Alias to `identifiedBy`
     * @param ids vargs of identifiers
-    * @return ???
     */
   def as(ids: Identifier*): R = identifiedBy(ids: _*)
 
@@ -144,7 +142,7 @@ trait CanBeIdentified[R] { this: R =>
 
 /**
   * Provides DSL to make binding conditional
-  * @tparam R ???
+  * @tparam R `BindHelper` or `BoundHelper`
   */
 trait CanBeConditional[R] { this: R =>
   /**
@@ -164,8 +162,8 @@ trait CanBeConditional[R] { this: R =>
 
 /**
   * Provides DSL to add life cycle to a binding
-  * @tparam H ???
-  * @tparam D ???
+  * @tparam H `BindHelper` or `BoundHelper`
+  * @tparam D Binding's type
   */
 trait CanHaveLifecycle[H, D] { this: H =>
   /**
@@ -193,16 +191,16 @@ trait CanHaveLifecycle[H, D] { this: H =>
 }
 
 /**
-  * ???
-  * @param bindingFn ???
-  * @tparam T ???
+  * Case class holding function that creates a binding with a lifecycle
+  * @param bindingFn function that from identifiers, conditions and lifecycle, initializes a binding
+  * @tparam T type of the created binding
   */
 case class WordBindingProvider[T](bindingFn: (List[Identifier], Option[() => Condition], BindingLifecycle[Any]) => BindingWithLifecycle)
 
 /**
   * Used to initialize a binding
-  * @param onBound ???
-  * @tparam R ???
+  * @param onBound callback on binding
+  * @tparam R binding type
   */
 class BindHelper[R](onBound: (BindHelper[R], BoundHelper[_]) => Unit)
     extends CanBeIdentified[BindHelper[R]] with CanBeConditional[BindHelper[R]] {
@@ -213,14 +211,14 @@ class BindHelper[R](onBound: (BindHelper[R], BoundHelper[_]) => Unit)
 
   /**
     * Used to undefine the binding
-    * @param none `None`
+    * @param none `None` case class
     */
   def to(none: None.type) = bindNone[R](LazyBinding(None, _, _, _))
 
   /**
     * Defines a lazy binding ???
     * @param provider ???
-    * @tparam T ???
+    * @tparam T type of the binding
     * @return ???
     */
   def to[T <: R : TypeTag](provider: WordBindingProvider[T]) = bind(provider.bindingFn)
